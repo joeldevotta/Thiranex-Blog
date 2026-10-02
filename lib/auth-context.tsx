@@ -1,6 +1,6 @@
 'use client'
 
-import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { api } from './api'
 import type { User } from './types'
 
@@ -14,35 +14,61 @@ type AuthContextValue = {
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null)
+const STORAGE_KEY = 'thiranex_blog_session'
 
-// Session lives in memory while the API is mocked. When wiring the FastAPI
-// backend, persist the JWT (e.g. an httpOnly cookie) and hydrate via /auth/me.
+type StoredSession = { user: User; token: string }
+
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [session, setSession] = useState<{ user: User; token: string } | null>(null)
+  const [session, setSession] = useState<StoredSession | null>(null)
+  const [hydrated, setHydrated] = useState(false)
+
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem(STORAGE_KEY)
+      if (raw) {
+        const stored = JSON.parse(raw) as StoredSession
+        if (stored?.token && stored?.user) {
+          api.auth.me(stored.token).then((res) => {
+            const next = { token: stored.token, user: res.user }
+            setSession(next)
+            window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next))
+          }).catch(() => window.localStorage.removeItem(STORAGE_KEY))
+        }
+      }
+    } finally {
+      setHydrated(true)
+    }
+  }, [])
+
+  const saveSession = useCallback((next: StoredSession) => {
+    setSession(next)
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next))
+  }, [])
 
   const login = useCallback(async (email: string, password: string) => {
     const res = await api.auth.login(email, password)
-    setSession(res)
+    saveSession(res)
     return res.user
-  }, [])
+  }, [saveSession])
 
   const register = useCallback(async (name: string, email: string, password: string) => {
     const res = await api.auth.register(name, email, password)
-    setSession(res)
+    saveSession(res)
     return res.user
+  }, [saveSession])
+
+  const updateProfile = useCallback(async (patch: Partial<Pick<User, 'name' | 'bio' | 'title'>>) => {
+    if (!session) throw new Error('Not authenticated')
+    const user = { ...session.user, ...patch }
+    const next = { ...session, user }
+    saveSession(next)
+    return user
+  }, [session, saveSession])
+
+  const logout = useCallback(() => {
+    setSession(null)
+    window.localStorage.removeItem(STORAGE_KEY)
   }, [])
-
-  const updateProfile = useCallback(
-    async (patch: Partial<Pick<User, 'name' | 'bio' | 'title'>>) => {
-      if (!session) throw new Error('Not authenticated')
-      const { user } = await api.auth.updateProfile(session.token, patch)
-      setSession({ ...session, user })
-      return user
-    },
-    [session],
-  )
-
-  const logout = useCallback(() => setSession(null), [])
 
   const value = useMemo(
     () => ({ user: session?.user ?? null, token: session?.token ?? null, login, register, updateProfile, logout }),
