@@ -43,13 +43,18 @@ export const api = {
     async me(token: string): Promise<{ user: User }> {
       return request('/auth/me', { headers: authHeaders(token) })
     },
-    async updateProfile(): Promise<{ user: User }> {
+    async updateProfile(_token: string, _patch: Partial<Pick<User, 'name' | 'bio' | 'title'>>): Promise<{ user: User }> {
       throw new ApiError(501, 'Profile editing is not available in the API yet')
     },
   },
   users: {
-    async get(_id: string): Promise<User | null> {
-      return null
+    async get(id: string): Promise<User | null> {
+      try {
+        return await request<User>(`/users/${encodeURIComponent(id)}`)
+      } catch (error) {
+        if (error instanceof ApiError && error.status === 404) return null
+        throw error
+      }
     },
   },
   posts: {
