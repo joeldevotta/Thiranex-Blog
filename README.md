@@ -1,14 +1,33 @@
 # Thiranex Blog
 
-Full-stack blogging platform using the existing Chronicle-style frontend and a Python/FastAPI + MongoDB backend.
+A full-stack blogging platform with user authentication, blog post management, and comments.
+
+## Live Review
+
+**Frontend:** https://thiranex-blog-5ych.vercel.app/
+
+**Backend API:** https://thiranex-blog.onrender.com/
+
+**API Docs:** https://thiranex-blog.onrender.com/docs
 
 ## Stack
 
-- Frontend: HTML + Tailwind CSS + JavaScript
+- Frontend: Next.js + React + Tailwind CSS
 - Backend: Python + FastAPI
 - Database: MongoDB
 - Authentication: JWT + bcrypt
-- Deployment: Vercel frontend + Render API
+- Deployment: Vercel frontend + Render API + MongoDB Atlas
+
+## Assignment Features
+
+- User registration and login
+- JWT authentication
+- Create, edit, and delete blog posts
+- Persistent comments and nested replies
+- RESTful API endpoints
+- MongoDB database integration
+- Responsive blog interface
+- Search and category filtering
 
 ## Backend
 
@@ -21,6 +40,7 @@ The backend provides:
 - authenticated blog post CRUD
 - persistent comments and nested replies
 - MongoDB persistence
+- public user lookup
 - CORS support for the frontend
 
 ## Run the API locally
@@ -40,12 +60,22 @@ Swagger docs are available at `http://localhost:8000/docs`.
 
 ## Frontend integration
 
-Use the deployed Render API as the frontend API base, for example:
+Set the frontend environment variable:
 
-`https://your-api.onrender.com/api`
+```text
+NEXT_PUBLIC_API_URL=https://thiranex-blog.onrender.com/api
+```
 
-Store the JWT returned by login and send it as:
+For local development, use:
 
-`Authorization: Bearer <token>`
+```text
+NEXT_PUBLIC_API_URL=http://localhost:8000/api
+```
+
+The frontend stores the JWT returned by login and sends it as:
+
+```text
+Authorization: Bearer <token>
+```
 
 Never commit MongoDB credentials or JWT secrets.
