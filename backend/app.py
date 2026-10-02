@@ -53,6 +53,7 @@ class PostIn(BaseModel):
     excerpt: str = Field(default="", max_length=500)
     category: str = Field(default="General", max_length=60)
     cover_image: str = ""
+    tags: list[str] = Field(default_factory=list, max_length=10)
 
 class CommentIn(BaseModel):
     content: str = Field(min_length=1, max_length=2000)
@@ -74,6 +75,7 @@ def serialize_post(p):
         "excerpt": p.get("excerpt", ""),
         "category": p.get("category", "General"),
         "cover_image": p.get("cover_image", ""),
+        "tags": p.get("tags", []),
         "author": p.get("author", {}),
         "created_at": p["created_at"].isoformat(),
         "updated_at": p["updated_at"].isoformat(),
@@ -142,6 +144,13 @@ def login(data: LoginIn):
 @app.get("/api/auth/me")
 def me(user=Depends(current_user)):
     return {"user": public_user(user)}
+
+@app.get("/api/users/{user_id}")
+def get_user(user_id: str):
+    user = users.find_one({"_id": oid(user_id)})
+    if not user:
+        raise HTTPException(404, "User not found")
+    return public_user(user)
 
 @app.get("/api/posts")
 def list_posts(skip: int = 0, limit: int = 20):
@@ -232,5 +241,13 @@ def delete_comment(comment_id: str, user=Depends(current_user)):
         raise HTTPException(404, "Comment not found")
     if str(comment["author"]["id"]) != str(user["_id"]):
         raise HTTPException(403, "You can only delete your own comments")
-    comments.delete_one({"_id": comment["_id"]})
+    doomed = {comment["_id"]}
+    changed = True
+    while changed:
+        changed = False
+        for child in comments.find({"parent_id": {"$in": list(doomed)}}, {"_id": 1}):
+            if child["_id"] not in doomed:
+                doomed.add(child["_id"])
+                changed = True
+    comments.delete_many({"_id": {"$in": list(doomed)}})
     return {"message": "Comment deleted"}
